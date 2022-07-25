@@ -51,7 +51,7 @@ def get_hparams(args):
                         help=" batch_size")
     parser.add_argument("--device", type=int,
                         help="device")
-    parser.add_argument("--model", type=int,
+    parser.add_argument("--model", type=str,
                         help="device")
     parsed_args = parser.parse_args(args)
 
