@@ -133,10 +133,10 @@ def train(args=None):
     print('Training and verification begin!')
 
     for epoch in range(epochs):
-        for step, (input_ids, token_type_ids, attention_mask, labels, mlm_data) in enumerate(train_loader):
+        for step, (input_ids, token_type_ids, attention_mask, labels) in enumerate(train_loader):
             # 从实例化的DataLoader中取出数据，并通过 .to(device)将数据部署到服务器上
-            input_ids, token_type_ids, attention_mask, labels, mlm_data = input_ids.to(device), token_type_ids.to(
-                device), attention_mask.to(device), labels.to(device), mlm_data.to(device)
+            input_ids, token_type_ids, attention_mask, labels = input_ids.to(device), token_type_ids.to(
+                device), attention_mask.to(device), labels.to(device)
             # 梯度清零
             optimizer.zero_grad()
             # 将数据输入到模型中获得输出

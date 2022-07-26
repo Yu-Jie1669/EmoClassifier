@@ -80,11 +80,11 @@ class LabeledDataset(Dataset):
         self.vocab = Vocabulary(filename=pretrain + "/vocab.txt")
 
         # mlm_data [(mlm_ids,pred_pos_s,labels),(),()]
-        self.mlm_data = [self.get_mlm_data(example) for example in self.input_ids]
+        # self.mlm_data = [self.get_mlm_data(example) for example in self.input_ids]
 
     def __getitem__(self, index):
         return self.input_ids[index], self.token_type_ids[index], self.attention_mask[index], self.labels[index], \
-               self.mlm_data[index]
+               # self.mlm_data[index]
 
     def __len__(self):
         return self.input_ids.shape[0]
