@@ -58,7 +58,7 @@ class Classifier(nn.Module):
             self.mlm = MaskLM(vocab_size=vocab_size)
 
         if smoothing:
-            self.criterion = LabelSmoothingCrossEntropy(smoothing)
+            self.criterion = LabelSmoothingCrossEntropy("mean",smoothing)
         else:
             self.criterion = nn.CrossEntropyLoss()
 
