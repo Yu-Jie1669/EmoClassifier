@@ -51,7 +51,7 @@ class Classifier(nn.Module):
             param.requires_grad = True
         # 定义线性函数
         self.dense = nn.Linear(768, 3)  # bert默认的隐藏单元数是768， 输出单元是3，表示三分类
-        self.softmax = nn.Softmax(dim=-1)
+        # self.softmax = nn.Softmax(dim=-1)
 
         self.mlm_train = mlm_train
         if self.mlm_train:
@@ -69,10 +69,11 @@ class Classifier(nn.Module):
         bert_cls_hidden_state = bert_output[1]
 
         linear_output = self.dense(bert_cls_hidden_state)
-        softmax_output = self.softmax(linear_output)
+
+        # softmax_output = self.softmax(linear_output)
 
         # 计算损失
-        loss = self.criterion(softmax_output, labels)
-        _, predict = torch.max(softmax_output.data, 1)
+        loss = self.criterion(linear_output, labels)
+        _, predict = torch.max(linear_output.data, 1)
 
-        return loss, predict, softmax_output
+        return loss, predict, linear_output

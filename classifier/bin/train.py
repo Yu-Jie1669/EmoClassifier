@@ -152,7 +152,7 @@ def train(args=None):
             # 每两步进行一次打印
             if (step + 1) % 2 == 0:
                 train_acc = correct / total
-                print("%s Train Epoch[{}/{}],step[{}/{}],tra_acc：{:.6f}%,loss:{:.6f}".format(
+                print("{} Train Epoch[{}/{}],step[{}/{}],tra_acc：{:.6f}%,loss:{:.6f}".format(
                     datetime.datetime.now().strftime('%Y-%m-%d%H:%M:%S'), epoch + 1, epochs,
                                                                           step + 1, len(train_loader),
                                                                           train_acc * 100, loss.item()))
@@ -167,7 +167,7 @@ def train(args=None):
                     path = hparams['output']
                     torch.save(model, path)
                 print(
-                    "%s DEV Epoch[{}/{}],step[{}/{}],tra_acc={:.6f} %,bestAcc={:.6f}%,dev_acc={:.6f} %,loss={:.6f}".format(
+                    "{} DEV Epoch[{}/{}],step[{}/{}],tra_acc={:.6f} %,bestAcc={:.6f}%,dev_acc={:.6f} %,loss={:.6f}".format(
                         datetime.datetime.now().strftime('%Y-%m-%d%H:%M:%S'), epoch + 1, epochs, step + 1,
                         len(train_loader), train_acc * 100, best_acc * 100, acc * 100,
                         loss.item()))
