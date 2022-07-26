@@ -1,4 +1,5 @@
 import argparse
+import datetime
 
 import torch
 from torch.optim.lr_scheduler import ReduceLROnPlateau
@@ -99,11 +100,13 @@ def dev(model, dev_loader, device):
 
 def train(args=None):
     hparams = get_hparams(args)
+    print("get params successfully")
 
     device_index = 'cuda:' + str(hparams['device'])
     device = torch.device(device_index if torch.cuda.is_available() else 'cpu')
 
     train_loader, dev_loader, vocab_size = get_dataloader(hparams)
+    print("get data successfully")
 
     model = Classifier(hparams['pretrain'], mlm_train=hparams['mlm_train'], vocab_size=vocab_size,
                        smoothing=hparams['smoothing'])
@@ -149,9 +152,10 @@ def train(args=None):
             # 每两步进行一次打印
             if (step + 1) % 2 == 0:
                 train_acc = correct / total
-                print("Train Epoch[{}/{}],step[{}/{}],tra_acc：{:.6f}%,loss:{:.6f}".format(epoch + 1, epochs,
-                                                                                          step + 1, len(train_loader),
-                                                                                          train_acc * 100, loss.item()))
+                print("%s Train Epoch[{}/{}],step[{}/{}],tra_acc：{:.6f}%,loss:{:.6f}".format(
+                    datetime.datetime.now().strftime('%Y-%m-%d%H:%M:%S'), epoch + 1, epochs,
+                                                                          step + 1, len(train_loader),
+                                                                          train_acc * 100, loss.item()))
             # 每五十次进行一次验证
             if (step + 1) % 50 == 0:
                 train_acc = correct / total
@@ -163,8 +167,9 @@ def train(args=None):
                     path = hparams['output']
                     torch.save(model, path)
                 print(
-                    "DEV Epoch[{}/{}],step[{}/{}],tra_acc={:.6f} %,bestAcc={:.6f}%,dev_acc={:.6f} %,loss={:.6f}".format(
-                        epoch + 1, epochs, step + 1, len(train_loader), train_acc * 100, best_acc * 100, acc * 100,
+                    "%s DEV Epoch[{}/{}],step[{}/{}],tra_acc={:.6f} %,bestAcc={:.6f}%,dev_acc={:.6f} %,loss={:.6f}".format(
+                        datetime.datetime.now().strftime('%Y-%m-%d%H:%M:%S'), epoch + 1, epochs, step + 1,
+                        len(train_loader), train_acc * 100, best_acc * 100, acc * 100,
                         loss.item()))
         scheduler.step(best_acc)
 
