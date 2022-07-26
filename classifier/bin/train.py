@@ -22,6 +22,7 @@ Default_Hparams = {
     "device": 0,
     "max_len": 256,
     "pretrain": "../../bert-base-chinese",
+    "mlm_train": False
 }
 
 
@@ -40,20 +41,15 @@ def get_hparams(args):
         usage="trainer.py [<args>] [-h | --help]"
     )
 
-    parser.add_argument("--input", type=str,
-                        help="Path to source and target corpus.")
-    parser.add_argument("--output", type=str,
-                        help="Path to load/store checkpoints.")
-    parser.add_argument("--dev", type=str,
-                        help="Path to validation file.")
-    parser.add_argument("--batch_size", type=int,
-                        help=" batch_size")
-    parser.add_argument("--lr", type=str,
-                        help="Path to pre-trained checkpoint.")
-    parser.add_argument("--epoch", type=int,
-                        help="epoch for train")
-    parser.add_argument("--device", type=int,
-                        help="device")
+    parser.add_argument("--input", type=str, help="Path to source and target corpus.")
+    parser.add_argument("--output", type=str, help="Path to load/store checkpoints.")
+    parser.add_argument("--dev", type=str, help="Path to validation file.")
+    parser.add_argument("--batch_size", type=int, help=" batch_size")
+    parser.add_argument("--lr", type=str, help="Path to pre-trained checkpoint.")
+    parser.add_argument("--epoch", type=int, help="epoch for train")
+    parser.add_argument("--device", type=int, help="device")
+    parser.add_argument("--mlm_train", type=bool, help="True to train mlm task")
+
     parsed_args = parser.parse_args(args)
 
     # 更新Hparmas
@@ -68,15 +64,17 @@ def get_dataloader(hparams):
                                    max_len=hparams['max_len'])
     dev_dataset = LabeledDataset(input_path=hparams['dev'], pretrain=hparams['pretrain'], max_len=hparams['max_len'])
 
+    vocab_size=train_dataset.get_vocab_size()
+
     # to dataloader
     # TODO 数据平衡？
     train_loader = DataLoader(dataset=train_dataset, batch_size=hparams['batch_size'], shuffle=True)
     dev_loader = DataLoader(dataset=dev_dataset, batch_size=hparams['batch_size'], shuffle=True)
 
-    return train_loader, dev_loader
+    return train_loader, dev_loader,vocab_size
 
 
-def dev(model, dev_loader,device):
+def dev(model, dev_loader, device):
     # 将模型放到服务器上
     model.to(device)
     # 设定模式为验证模式
@@ -103,9 +101,9 @@ def train(args=None):
     device_index = 'cuda:' + str(hparams['device'])
     device = torch.device(device_index if torch.cuda.is_available() else 'cpu')
 
-    train_loader, dev_loader = get_dataloader(hparams)
+    train_loader, dev_loader,vocab_size = get_dataloader(hparams)
 
-    model = Classifier(hparams['pretrain'])
+    model = Classifier(hparams['pretrain'],mlm_train=hparams['mlm_train'],vocab_size=vocab_size)
     model.to(device)
     model.train()
 
@@ -132,10 +130,10 @@ def train(args=None):
     print('Training and verification begin!')
 
     for epoch in range(epochs):
-        for step, (input_ids, token_type_ids, attention_mask, labels) in enumerate(train_loader):
+        for step, (input_ids, token_type_ids, attention_mask, labels, mlm_data) in enumerate(train_loader):
             # 从实例化的DataLoader中取出数据，并通过 .to(device)将数据部署到服务器上
-            input_ids, token_type_ids, attention_mask, labels = input_ids.to(device), token_type_ids.to(
-                device), attention_mask.to(device), labels.to(device)
+            input_ids, token_type_ids, attention_mask, labels,mlm_data = input_ids.to(device), token_type_ids.to(
+                device), attention_mask.to(device), labels.to(device),mlm_data.to(device)
             # 梯度清零
             optimizer.zero_grad()
             # 将数据输入到模型中获得输出
@@ -155,15 +153,16 @@ def train(args=None):
             if (step + 1) % 50 == 0:
                 train_acc = correct / total
                 # 调用验证函数dev对模型进行验证，并将有效果提升的模型进行保存
-                acc = dev(model, dev_loader,device)
+                acc = dev(model, dev_loader, device)
                 if best_acc < acc:
                     best_acc = acc
                     # 模型保存路径
                     path = hparams['output']
                     torch.save(model, path)
-                print("DEV Epoch[{}/{}],step[{}/{}],tra_acc={:.6f} %,bestAcc={:.6f}%,dev_acc={:.6f} %,loss={:.6f}".format(
-                    epoch + 1, epochs, step + 1, len(train_loader), train_acc * 100, best_acc * 100, acc * 100,
-                    loss.item()))
+                print(
+                    "DEV Epoch[{}/{}],step[{}/{}],tra_acc={:.6f} %,bestAcc={:.6f}%,dev_acc={:.6f} %,loss={:.6f}".format(
+                        epoch + 1, epochs, step + 1, len(train_loader), train_acc * 100, best_acc * 100, acc * 100,
+                        loss.item()))
         scheduler.step(best_acc)
 
 
