@@ -22,7 +22,8 @@ Default_Hparams = {
     "device": 0,
     "max_len": 256,
     "pretrain": "../../bert-base-chinese",
-    "mlm_train": False
+    "mlm_train": False,
+    "smoothing": None,
 }
 
 
@@ -45,10 +46,11 @@ def get_hparams(args):
     parser.add_argument("--output", type=str, help="Path to load/store checkpoints.")
     parser.add_argument("--dev", type=str, help="Path to validation file.")
     parser.add_argument("--batch_size", type=int, help=" batch_size")
-    parser.add_argument("--lr", type=str, help="Path to pre-trained checkpoint.")
+    parser.add_argument("--lr", type=float, help="Path to pre-trained checkpoint.")
     parser.add_argument("--epoch", type=int, help="epoch for train")
     parser.add_argument("--device", type=int, help="device")
     parser.add_argument("--mlm_train", type=bool, help="True to train mlm task")
+    parser.add_argument("--smoothing", type=float, help="label smoothing loss")
 
     parsed_args = parser.parse_args(args)
 
@@ -64,14 +66,14 @@ def get_dataloader(hparams):
                                    max_len=hparams['max_len'])
     dev_dataset = LabeledDataset(input_path=hparams['dev'], pretrain=hparams['pretrain'], max_len=hparams['max_len'])
 
-    vocab_size=train_dataset.get_vocab_size()
+    vocab_size = train_dataset.get_vocab_size()
 
     # to dataloader
     # TODO 数据平衡？
     train_loader = DataLoader(dataset=train_dataset, batch_size=hparams['batch_size'], shuffle=True)
     dev_loader = DataLoader(dataset=dev_dataset, batch_size=hparams['batch_size'], shuffle=True)
 
-    return train_loader, dev_loader,vocab_size
+    return train_loader, dev_loader, vocab_size
 
 
 def dev(model, dev_loader, device):
@@ -101,9 +103,10 @@ def train(args=None):
     device_index = 'cuda:' + str(hparams['device'])
     device = torch.device(device_index if torch.cuda.is_available() else 'cpu')
 
-    train_loader, dev_loader,vocab_size = get_dataloader(hparams)
+    train_loader, dev_loader, vocab_size = get_dataloader(hparams)
 
-    model = Classifier(hparams['pretrain'],mlm_train=hparams['mlm_train'],vocab_size=vocab_size)
+    model = Classifier(hparams['pretrain'], mlm_train=hparams['mlm_train'], vocab_size=vocab_size,
+                       smoothing=hparams['smoothing'])
     model.to(device)
     model.train()
 
@@ -132,8 +135,8 @@ def train(args=None):
     for epoch in range(epochs):
         for step, (input_ids, token_type_ids, attention_mask, labels, mlm_data) in enumerate(train_loader):
             # 从实例化的DataLoader中取出数据，并通过 .to(device)将数据部署到服务器上
-            input_ids, token_type_ids, attention_mask, labels,mlm_data = input_ids.to(device), token_type_ids.to(
-                device), attention_mask.to(device), labels.to(device),mlm_data.to(device)
+            input_ids, token_type_ids, attention_mask, labels, mlm_data = input_ids.to(device), token_type_ids.to(
+                device), attention_mask.to(device), labels.to(device), mlm_data.to(device)
             # 梯度清零
             optimizer.zero_grad()
             # 将数据输入到模型中获得输出
