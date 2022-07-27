@@ -50,6 +50,7 @@ hparams = Default_Hparams = {
     "pretrain": "../../bert-base-chinese",
     "mlm_train": False,
     "smoothing": 0.1,
+    # "teacher"
 }
 
 # %%

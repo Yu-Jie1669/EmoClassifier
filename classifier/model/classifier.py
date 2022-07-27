@@ -47,9 +47,12 @@ class MaskLM(nn.Module):
 class Classifier(nn.Module):
     def __init__(self, pretrain, vocab_size, mlm_train=False, smoothing=None):
         super(Classifier, self).__init__()
+
         # 加载预训练模型
+        config = None
         config = AutoConfig.from_pretrained(pretrain, output_hidden_states=True, output_attentions=True)
-        self.bert = AutoModelForMaskedLM.from_pretrained(pretrain, config=config)
+        self.bert = transformers.BertModel.from_pretrained(pretrain, config=config)
+
         for param in self.bert.parameters():
             param.requires_grad = True
         # 定义线性函数
@@ -70,7 +73,7 @@ class Classifier(nn.Module):
         # bert_output
         bert_output = self.bert(input_ids=input_ids, token_type_ids=token_type_ids, attention_mask=attention_mask)
 
-        bert_cls_hidden_state = bert_output[1]
+        bert_cls_hidden_state = bert_output.pooler_output
 
         linear_output = self.dense(bert_cls_hidden_state)
 
