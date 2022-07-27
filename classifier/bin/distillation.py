@@ -205,9 +205,6 @@ def distillation(args=None):
         model_T=teacher_model, model_S=student_model,
         adaptor_T=simple_adaptor, adaptor_S=simple_adaptor)
 
-    scheduler_class = ReduceLROnPlateau(optimizer, mode='max', factor=0.5, min_lr=1e-7, patience=5, verbose=True,
-                                        threshold=0.0001, eps=1e-08)
-
     scheduler_args = {
         'mode': 'max', "factor": 0.5, "min_lr": 1e-7, "patience": 5, "verbose": True,
         'threshold': 0.0001, 'eps': 1e-08
