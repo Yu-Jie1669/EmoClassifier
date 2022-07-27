@@ -1,0 +1,1 @@
+python ../bin/distillation.py  --device=1 --batch_size=32 > ../../train/distillation.log
