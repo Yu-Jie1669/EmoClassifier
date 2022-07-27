@@ -8,6 +8,7 @@ from transformers import AdamW
 
 from classifier.data.dataset import LabeledDataset
 from torch.utils.data import DataLoader
+from torch.utils.data.sampler import WeightedRandomSampler
 
 from classifier.model.classifier import Classifier
 from torch import device
@@ -25,6 +26,7 @@ Default_Hparams = {
     "pretrain": "../../bert-base-chinese",
     "mlm_train": False,
     "smoothing": None,
+    "temperature": 1.0,
 }
 
 
@@ -52,6 +54,7 @@ def get_hparams(args):
     parser.add_argument("--device", type=int, help="device")
     parser.add_argument("--mlm_train", type=bool, help="True to train mlm task")
     parser.add_argument("--smoothing", type=float, help="label smoothing loss")
+    parser.add_argument("--temperature",type=float,help="sample temperature")
 
     parsed_args = parser.parse_args(args)
 
@@ -69,9 +72,17 @@ def get_dataloader(hparams):
 
     vocab_size = train_dataset.get_vocab_size()
 
-    # to dataloader
-    # TODO 数据平衡？
-    train_loader = DataLoader(dataset=train_dataset, batch_size=hparams['batch_size'], shuffle=True)
+    if hparams['temperature']:
+        temperature = hparams['temperature']
+        weight_list = train_dataset.get_weight_list()
+        temp_list = [cnt ** (1.0 / temperature) for cnt in weight_list]
+        weight = [temp_list[int(label)] * 1.0 / sum(temp_list) for _, _, _, label in train_dataset]
+        sampler = WeightedRandomSampler(weight, num_samples=len(train_dataset))
+        train_loader = DataLoader(dataset=train_dataset, batch_size=hparams['batch_size'], shuffle=False,
+                                  sampler=sampler)
+    else:
+        train_loader = DataLoader(dataset=train_dataset, batch_size=hparams['batch_size'], shuffle=True)
+
     dev_loader = DataLoader(dataset=dev_dataset, batch_size=hparams['batch_size'], shuffle=True)
 
     return train_loader, dev_loader, vocab_size
@@ -91,7 +102,7 @@ def dev(model, dev_loader, device):
             print("Dev Step[{}/{}]".format(step + 1, len(dev_loader)))
             input_ids, token_type_ids, attention_mask, labels = input_ids.to(device), token_type_ids.to(
                 device), attention_mask.to(device), labels.to(device)
-            loss, predict, _,_ = model(input_ids, token_type_ids, attention_mask, labels)
+            loss, predict, _, _ = model(input_ids, token_type_ids, attention_mask, labels)
             correct += (predict == labels).sum().item()
             total += labels.size(0)
         res = correct / total
@@ -143,7 +154,7 @@ def train(args=None):
             # 梯度清零
             optimizer.zero_grad()
             # 将数据输入到模型中获得输出
-            loss, predict, _,_ = model(input_ids, token_type_ids, attention_mask, labels)
+            loss, predict, _, _ = model(input_ids, token_type_ids, attention_mask, labels)
 
             correct += (predict == labels).sum().item()
             total += labels.size(0)
@@ -154,8 +165,8 @@ def train(args=None):
                 train_acc = correct / total
                 print("[Train] {} Epoch[{}/{}],step[{}/{}],tra_acc={:.6f}%,loss={:.6f}".format(
                     datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), epoch + 1, epochs,
-                                                                          step + 1, len(train_loader),
-                                                                          train_acc * 100, loss.item()))
+                                                                           step + 1, len(train_loader),
+                                                                           train_acc * 100, loss.item()))
             # 每五十次进行一次验证
             if (step + 1) % 50 == 0:
                 train_acc = correct / total

@@ -9,7 +9,7 @@ import datetime
 import torch
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from tqdm import tqdm
-from transformers import AdamW
+from transformers import AdamW, get_linear_schedule_with_warmup
 
 from classifier.data.dataset import LabeledDataset
 from torch.utils.data import DataLoader
@@ -88,7 +88,6 @@ def get_hparams(args):
 def distillation(args=None):
     hparams = get_hparams(args)
 
-    # %%
     device_index = 'cuda:' + str(hparams['device'])
     device = torch.device(device_index if torch.cuda.is_available() else 'cpu')
 
@@ -111,7 +110,6 @@ def distillation(args=None):
     result, _ = textbrewer.utils.display_parameters(student_model, max_level=3)
     print(result)
 
-    # %%
     param_optimizer = list(student_model.named_parameters())
     no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
     # 设置模型参数的权重衰减
@@ -124,14 +122,11 @@ def distillation(args=None):
     optimizer_params = {'lr': hparams['lr'], 'eps': 1e-6, 'correct_bias': False}
     # 使用AdamW 主流优化器
     optimizer = AdamW(optimizer_grouped_parameters, **optimizer_params)
-    # 学习率调整器，检测准确率的状态，然后衰减学习率
-    scheduler = ReduceLROnPlateau(optimizer, mode='max', factor=0.5, min_lr=1e-7, patience=5, verbose=True,
-                                  threshold=0.0001, eps=1e-08)
-    # %%
+
     import torch.nn.functional as F
 
     # Define callback function
-    def predict(model, eval_dataloader, device):
+    def predict(model, eval_dataloader, step, device):
         model.to(device)
         model.eval()
 
@@ -156,18 +151,12 @@ def distillation(args=None):
                 # print('now_predict_Accuracy : {} %'.format(100.0 * correct / total))
                 # print(probs)
             res = correct / total
-            print('predict_Accuracy : {} %'.format(100 * res))
+            print('step = {} predict_Accuracy = {} %'.format(step, 100 * res))
 
     from functools import partial
 
     callback_fun = partial(predict, eval_dataloader=dev_loader, device=device)  # fill other arguments
 
-    # # %%
-    # from IPython.display import Image
-    #
-    # Image("./img/img.png")
-
-    # %%
     def simple_adaptor(batch, model_outputs):
         # The second element of model_outputs is the logits before softmax
         # The third element of model_outputs is hidden states
@@ -176,21 +165,20 @@ def distillation(args=None):
                 'attention': model_outputs[3].attentions,
                 'inputs_mask': batch[2]}
 
-    # TODO num_steps should be passed to distiller.train()
-    train_config = TrainingConfig(device=device, ckpt_steps=50, output_dir="../../distillation/")
+    train_config = TrainingConfig(device=device, ckpt_frequency=5, output_dir="../../distillation/")
     distill_config = DistillationConfig(
         temperature=8,
         hard_label_weight=0,
         kd_loss_type='ce',
         probability_shift=False,
         intermediate_matches=[
-            {'layer_T': 0, 'layer_S': 0, 'feature': 'hidden', 'loss': 'hidden_mse', 'weight': 1},
-            {'layer_T': 2, 'layer_S': 2, 'feature': 'hidden', 'loss': 'hidden_mse', 'weight': 1},
-            {'layer_T': 4, 'layer_S': 4, 'feature': 'hidden', 'loss': 'hidden_mse', 'weight': 1},
+            {'layer_T': 2, 'layer_S': 0, 'feature': 'hidden', 'loss': 'hidden_mse', 'weight': 1},
+            {'layer_T': 5, 'layer_S': 1, 'feature': 'hidden', 'loss': 'hidden_mse', 'weight': 1},
+            {'layer_T': 8, 'layer_S': 2, 'feature': 'hidden', 'loss': 'hidden_mse', 'weight': 1},
 
-            {'layer_T': 0, 'layer_S': 0, 'feature': 'attention', 'loss': 'hidden_mse', 'weight': 1},
-            {'layer_T': 2, 'layer_S': 2, 'feature': 'attention', 'loss': 'hidden_mse', 'weight': 1},
-            {'layer_T': 4, 'layer_S': 4, 'feature': 'attention', 'loss': 'hidden_mse', 'weight': 1}
+            {'layer_T': 2, 'layer_S': 0, 'feature': 'attention', 'loss': 'attention_mse', 'weight': 1},
+            {'layer_T': 5, 'layer_S': 1, 'feature': 'attention', 'loss': 'attention_mse', 'weight': 1},
+            {'layer_T': 8, 'layer_S': 2, 'feature': 'attention', 'loss': 'attention_mse', 'weight': 1}
         ]
     )
 
@@ -199,21 +187,22 @@ def distillation(args=None):
 
     print("distill_config:")
     print(distill_config)
-    # %%
+
     distiller = GeneralDistiller(
         train_config=train_config, distill_config=distill_config,
         model_T=teacher_model, model_S=student_model,
         adaptor_T=simple_adaptor, adaptor_S=simple_adaptor)
 
-    scheduler_args = {
-        'mode': 'max', "factor": 0.5, "min_lr": 1e-7, "patience": 5, "verbose": True,
-        'threshold': 0.0001, 'eps': 1e-08
-    }
+    epochs = hparams['epoch']
+    # arguments dict except 'optimizer'
+    scheduler_args = {'num_warmup_steps': int(0.1 * epochs * len(train_loader)),
+                      'num_training_steps': epochs * len(train_loader)}
 
     # Start distilling
     with distiller:
-        distiller.train(optimizer, train_loader, num_steps=5000,
-                        scheduler_class=ReduceLROnPlateau, scheduler_args=scheduler_args, callback=callback_fun)
+        distiller.train(optimizer, train_loader, num_epochs=epochs,
+                        scheduler_class=get_linear_schedule_with_warmup, scheduler_args=scheduler_args,
+                        callback=callback_fun)
 
 
 if __name__ == '__main__':

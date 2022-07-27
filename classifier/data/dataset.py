@@ -66,6 +66,8 @@ class LabeledDataset(Dataset):
     def __init__(self, input_path, pretrain, max_len):
         f = open(input_path, encoding="GB2312", errors='ignore')
         df = pd.read_csv(f)
+
+        self.weight_list = df['情感倾向'].value_counts().sort_index().to_list()
         f.close()
 
         text_list = list(df['微博中文内容'].astype('str'))
@@ -84,10 +86,13 @@ class LabeledDataset(Dataset):
 
     def __getitem__(self, index):
         return self.input_ids[index], self.token_type_ids[index], self.attention_mask[index], self.labels[index], \
-               # self.mlm_data[index]
+            # self.mlm_data[index]
 
     def __len__(self):
         return self.input_ids.shape[0]
+
+    def get_weight_list(self):
+        return self.weight_list
 
     @staticmethod
     def replace_mlm_tokens(origin_ids, candidate_pred_pos, num_mlm_pred,
