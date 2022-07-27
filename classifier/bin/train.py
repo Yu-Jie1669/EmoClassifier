@@ -91,7 +91,7 @@ def dev(model, dev_loader, device):
             print("Dev Step[{}/{}]".format(step + 1, len(dev_loader)))
             input_ids, token_type_ids, attention_mask, labels = input_ids.to(device), token_type_ids.to(
                 device), attention_mask.to(device), labels.to(device)
-            loss, predict, _ = model(input_ids, token_type_ids, attention_mask, labels)
+            loss, predict, _,_ = model(input_ids, token_type_ids, attention_mask, labels)
             correct += (predict == labels).sum().item()
             total += labels.size(0)
         res = correct / total
@@ -111,7 +111,6 @@ def train(args=None):
     model = Classifier(hparams['pretrain'], mlm_train=hparams['mlm_train'], vocab_size=vocab_size,
                        smoothing=hparams['smoothing'])
     model.to(device)
-    model.train()
 
     param_optimizer = list(model.named_parameters())
     no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
@@ -137,13 +136,14 @@ def train(args=None):
 
     for epoch in range(epochs):
         for step, (input_ids, token_type_ids, attention_mask, labels) in enumerate(train_loader):
+            model.train()
             # 从实例化的DataLoader中取出数据，并通过 .to(device)将数据部署到服务器上
             input_ids, token_type_ids, attention_mask, labels = input_ids.to(device), token_type_ids.to(
                 device), attention_mask.to(device), labels.to(device)
             # 梯度清零
             optimizer.zero_grad()
             # 将数据输入到模型中获得输出
-            loss, predict, _ = model(input_ids, token_type_ids, attention_mask, labels)
+            loss, predict, _,_ = model(input_ids, token_type_ids, attention_mask, labels)
 
             correct += (predict == labels).sum().item()
             total += labels.size(0)
@@ -152,7 +152,7 @@ def train(args=None):
             # 每两步进行一次打印
             if (step + 1) % 2 == 0:
                 train_acc = correct / total
-                print("{} Train Epoch[{}/{}],step[{}/{}],tra_acc：{:.6f}%,loss:{:.6f}".format(
+                print("[Train] {} Epoch[{}/{}],step[{}/{}],tra_acc={:.6f}%,loss={:.6f}".format(
                     datetime.datetime.now().strftime('%Y-%m-%d%H:%M:%S'), epoch + 1, epochs,
                                                                           step + 1, len(train_loader),
                                                                           train_acc * 100, loss.item()))
@@ -167,8 +167,8 @@ def train(args=None):
                     path = hparams['output']
                     torch.save(model, path)
                 print(
-                    "{} DEV Epoch[{}/{}],step[{}/{}],tra_acc={:.6f} %,bestAcc={:.6f}%,dev_acc={:.6f} %,loss={:.6f}".format(
-                        datetime.datetime.now().strftime('%Y-%m-%d%H:%M:%S'), epoch + 1, epochs, step + 1,
+                    "[DEV] {} Epoch[{}/{}],step[{}/{}],tra_acc={:.6f} %,bestAcc={:.6f}%,dev_acc={:.6f} %,loss={:.6f}".format(
+                        datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), epoch + 1, epochs, step + 1,
                         len(train_loader), train_acc * 100, best_acc * 100, acc * 100,
                         loss.item()))
         scheduler.step(best_acc)

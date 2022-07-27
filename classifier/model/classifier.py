@@ -1,5 +1,7 @@
 import torch
 import torch.nn as nn
+from transformers import AutoModelForMaskedLM, AutoConfig
+
 from classifier.loss.label_smoothing import LabelSmoothingCrossEntropy
 
 import transformers
@@ -46,7 +48,8 @@ class Classifier(nn.Module):
     def __init__(self, pretrain, vocab_size, mlm_train=False, smoothing=None):
         super(Classifier, self).__init__()
         # 加载预训练模型
-        self.bert = transformers.BertModel.from_pretrained(pretrain)
+        config = AutoConfig.from_pretrained(pretrain, output_hidden_states=True, output_attentions=True)
+        self.bert = AutoModelForMaskedLM.from_pretrained(pretrain, config=config)
         for param in self.bert.parameters():
             param.requires_grad = True
         # 定义线性函数
@@ -58,12 +61,13 @@ class Classifier(nn.Module):
             self.mlm = MaskLM(vocab_size=vocab_size)
 
         if smoothing:
-            self.criterion = LabelSmoothingCrossEntropy("mean",smoothing)
+            self.criterion = LabelSmoothingCrossEntropy("mean", smoothing)
         else:
             self.criterion = nn.CrossEntropyLoss()
 
     def forward(self, input_ids, token_type_ids, attention_mask, labels):
 
+        # bert_output
         bert_output = self.bert(input_ids=input_ids, token_type_ids=token_type_ids, attention_mask=attention_mask)
 
         bert_cls_hidden_state = bert_output[1]
@@ -76,4 +80,4 @@ class Classifier(nn.Module):
         loss = self.criterion(linear_output, labels)
         _, predict = torch.max(linear_output.data, 1)
 
-        return loss, predict, linear_output
+        return loss, predict, linear_output, bert_output

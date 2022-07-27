@@ -84,7 +84,7 @@ def dev(args=None):
             input_ids, token_type_ids, attention_mask, labels = input_ids.to(device), token_type_ids.to(
                 device), attention_mask.to(device), labels.to(device)
 
-            _, predict, output = model(input_ids, token_type_ids, attention_mask, labels)
+            _, predict, output,_ = model(input_ids, token_type_ids, attention_mask, labels)
 
             pre_numpy = predict.cpu().numpy().tolist()
             predicts.extend(pre_numpy)
