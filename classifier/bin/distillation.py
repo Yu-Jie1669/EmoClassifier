@@ -135,7 +135,7 @@ def distillation(args=None):
         with torch.no_grad():
             correct = 0
             total = 0
-            for step, (input_ids, token_type_ids, attention_mask, labels) in enumerate(eval_dataloader):
+            for _step, (input_ids, token_type_ids, attention_mask, labels) in enumerate(eval_dataloader):
                 input_ids, token_type_ids, attention_mask, labels = input_ids.to(device), token_type_ids.to(
                     device), attention_mask.to(device), labels.to(device)
 
