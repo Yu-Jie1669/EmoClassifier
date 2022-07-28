@@ -27,7 +27,7 @@ Default_Hparams = {
     "mlm_train": False,
     "smoothing": None,
     "temperature": 1.0,
-    "checkpoint":None,
+    "checkpoint": None,
 }
 
 
@@ -55,8 +55,8 @@ def get_hparams(args):
     parser.add_argument("--device", type=int, help="device")
     parser.add_argument("--mlm_train", type=bool, help="True to train mlm task")
     parser.add_argument("--smoothing", type=float, help="label smoothing loss")
-    parser.add_argument("--temperature",type=float,help="sample temperature")
-    parser.add_argument("--checkpoint",type=str,help="load checkpoint model")
+    parser.add_argument("--temperature", type=float, help="sample temperature")
+    parser.add_argument("--checkpoint", type=str, help="load checkpoint model")
 
     parsed_args = parser.parse_args(args)
 
@@ -125,7 +125,7 @@ def train(args=None):
                        smoothing=hparams['smoothing'])
 
     if hparams['checkpoint']:
-        checkpoint=torch.load(hparams['checkpoint'])
+        checkpoint = torch.load(hparams['checkpoint'], map_location=device)
         model.load_state_dict(checkpoint)
 
     model.to(device)
