@@ -126,7 +126,7 @@ def train(args=None):
 
     if hparams['checkpoint']:
         checkpoint=torch.load(hparams['checkpoint'])
-        model.load_state_dict(checkpoint.state_dict())
+        model.load_state_dict(checkpoint)
 
     model.to(device)
 
